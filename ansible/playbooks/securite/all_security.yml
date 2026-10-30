@@ -1,0 +1,69 @@
+- name: Mise en place de CrowdSec et ufw
+  hosts: all
+  become: true
+
+  tasks:
+  - name: UFW Install
+    ansible.builtin.apt:
+      name: ufw
+      state: present
+      update_cache: true
+
+  # Les règles "allow" passent AVANT l'activation pour ne pas couper l'accès SSH
+  - name: UFW Allow SSH
+    community.general.ufw:
+      rule: allow
+      port: "{{ ssh_port | default(22) }}"
+      proto: tcp
+
+  - name: UFW Allow additional ports
+    community.general.ufw:
+      rule: allow
+      port: "{{ item.port }}"
+      proto: "{{ item.proto | default('tcp') }}"
+    loop: "{{ ufw_allowed_ports | default([]) }}"
+
+  - name: UFW Default deny incoming
+    community.general.ufw:
+      default: deny
+      direction: incoming
+
+  - name: UFW Default allow outgoing
+    community.general.ufw:
+      default: allow
+      direction: outgoing
+
+  - name: UFW Enable
+    community.general.ufw:
+      state: enabled
+
+  - name: CrowdSec Add GPG apt Key
+    ansible.builtin.get_url:
+      url: https://packagecloud.io/crowdsec/crowdsec/gpgkey
+      dest: /etc/apt/keyrings/crowdsec.asc
+      mode: "0644"
+
+  - name: CrowdSec Add Repository
+    ansible.builtin.apt_repository:
+      repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ bookworm main"
+      state: present
+
+  - name: CrowdSec Apt update and install CrowdSec
+    ansible.builtin.apt:
+      update_cache: true
+      name: crowdsec
+      state: present
+
+  - name: CrowdSec install collections
+    ansible.builtin.command:
+      cmd: "cscli collections install {{ item }}"
+    loop: "{{ collections_list }}"
+    register: collections_install_result
+    when: collections_list | length > 0
+    notify: Restart crowdsec
+
+  handlers:
+  - name: Restart crowdsec
+    ansible.builtin.service:
+      name: crowdsec
+      state: restarted

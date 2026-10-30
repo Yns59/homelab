@@ -1,0 +1,39 @@
+enable_firewall: true
+
+base_packages:
+- curl
+- wget
+- gnupg
+- ca-certificates
+- lsb-release
+- git
+- vim
+- htop
+- qemu-guest-agent
+- prometheus-node-exporter
+
+vm_specs:
+  environment: production
+  hypervisor: Proxmox_VE_8
+  name: Homelab
+
+docker_file:
+- /opt/docker
+- /opt/portainer
+- /opt/backup
+
+# crowsec
+
+ssh_port: 22
+
+ufw_allowed_ports:
+- { port: 80 }
+- { port: 443 }
+- { port: 51820, proto: udp }
+
+collections_list:
+- crowdsecurity/sshd
+- crowdsecurity/linux
+- crowdsecurity/nginx
+- crowdsecurity/base-http-scenarios
+- crowdsecurity/http-cve

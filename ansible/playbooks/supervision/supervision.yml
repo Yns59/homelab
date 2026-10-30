@@ -1,0 +1,24 @@
+- name: Installation de Prometheus, Grafana et Loki
+  hosts: superviseur
+  become: true
+
+  tasks:
+  - name: Grafana Add GPG apt Key
+    ansible.builtin.get_url:
+      url: https://apt.grafana.com/gpg.key
+      dest: /etc/apt/keyrings/grafana.asc
+      mode: "0644"
+
+  - name: Grafana Add Repository
+    ansible.builtin.apt_repository:
+      repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+      state: present
+
+  - name: Apt update and install Prometheus, Grafana et Loki
+    ansible.builtin.apt:
+      update_cache: true
+      name:
+      - prometheus
+      - grafana
+      - loki
+      state: present

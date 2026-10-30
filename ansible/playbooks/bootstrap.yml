@@ -1,0 +1,141 @@
+# Nom du playbook affiché lors de son exécution
+- name: Configuration initiale de base de mes VM Debian sur Proxmox
+
+  # Cible toutes les machines présentes dans l'inventaire Ansible
+  hosts: all
+
+  # Exécute les tâches avec les privilèges administrateur (sudo)
+  become: true
+
+  tasks:
+
+  ###########################################################################
+  # MISE À JOUR DU SYSTÈME ET INSTALLATION DES OUTILS DE BASE
+  ###########################################################################
+
+  - name: Mettre à jour Debian
+    ansible.builtin.apt:
+      update_cache: true
+      upgrade: dist
+      autoremove: true
+      cache_valid_time: 3600
+
+  - name: Installer les paquets de base
+    ansible.builtin.apt:
+      name: "{{ base_packages }}"
+      state: present
+
+  - name: activation du qemu-guest-agent
+    ansible.builtin.systemd:
+      name: qemu-guest-agent
+      enabled: true
+      state: started
+    when: ansible_facts['virtualization_type'] != 'lxc'
+      ###########################################################################
+      # GESTION DES REDÉMARRAGES AUTOMATIQUES
+      ###########################################################################
+
+      # Vérifie si Debian a créé le fichier indiquant qu'un redémarrage
+      # du système est nécessaire après une mise à jour
+  - name: Vérifier si un redémarrage du noyau Linux est requis sur la VM
+    ansible.builtin.stat:
+      path: /var/run/reboot-required
+
+    # Stocke le résultat dans une variable réutilisable
+    register: reboot_file_status
+
+  # Redémarre automatiquement la machine uniquement si le fichier
+  # /var/run/reboot-required est présent
+  - name: redémarrage de la vm si le fichier /var/run/reboot-required existe
+    ansible.builtin.reboot:
+
+      # Message enregistré dans les journaux système
+      msg: "Redémarrage automatique par Ansible suite à mise à jour Kernel Debian"
+
+      # Temps maximum d'attente du redémarrage
+      reboot_timeout: 300
+
+    # Condition d'exécution
+    when: reboot_file_status.stat.exists
+
+  ###########################################################################
+  # CONFIGURATION RÉGIONALE
+  ###########################################################################
+
+  - name: 2. Configurer le fuseau horaire sur Europe/Paris
+    community.general.timezone:
+
+      # Fuseau horaire utilisé par les logs et services
+      name: Europe/Paris
+      ###########################################################################
+      # BANNIÈRE MOTD STATIQUE
+      ###########################################################################
+
+      # Création d'une bannière affichée à la connexion SSH
+  - name: 3. Créer un fichier de bannière d'accueil (MOTD) personnalisé
+    ansible.builtin.copy:
+
+      # Emplacement du fichier MOTD (Message Of The Day)
+      dest: /etc/motd
+
+      # Contenu affiché après la connexion SSH
+      content: |
+        =========================================================
+        SERVEUR DEBIAN GÉRÉ PAR ANSIBLE - PROJET INFRA YOUNES
+        Toute modification manuelle sera écrasée automatiquement.
+        =========================================================
+
+      # Propriétaire du fichier
+      owner: root
+
+      # Groupe propriétaire
+      group: root
+
+      # Permissions :
+      # 6 = lecture/écriture propriétaire
+      # 4 = lecture groupe
+      # 4 = lecture autres
+      mode: '0644'
+
+  ###########################################################################
+  # AFFICHAGE DE VARIABLES PERSONNALISÉES
+  ###########################################################################
+
+  # Affiche le contenu du dictionnaire vm_specs durant l'exécution
+  # du playbook afin de vérifier les informations configurées
+  - name: Afficher les métadonnées du dictionnaire avec le module debug
+    ansible.builtin.debug:
+      msg: "Ce serveur {{vm_specs.name}} tourne en {{vm_specs.environment}} sur {{vm_specs.hypervisor}}"
+
+  ###########################################################################
+  # BANNIÈRE MOTD DYNAMIQUE AVEC JINJA2
+  ###########################################################################
+
+  # Génère un fichier /etc/motd personnalisé à partir du template
+  # templates/motd.j2 en utilisant les Facts Ansible de chaque VM
+  - name: Générer dynamiquement la bannière /etc/motd avec les Facts de chaque VM
+    ansible.builtin.template:
+
+      # Fichier modèle présent sur la machine de contrôle Ansible
+      src: ./templates/motd.j2
+
+      # Fichier généré sur la machine distante
+      dest: /etc/motd
+
+      # Propriétaire du fichier généré
+      owner: root
+
+      # Groupe propriétaire
+      group: root
+
+      # Permissions du fichier
+      mode: '0644'
+
+  - name: creation de compte pour les vm
+    ansible.builtin.user:
+      name: "{{item.username}}"
+      groups: "{{item.group}}"
+      shell: /bin/bash
+      state: present
+    loop:
+    - { username: 'flavian', group: 'adm' }

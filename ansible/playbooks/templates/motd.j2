@@ -1,0 +1,20 @@
+# Fichier local sur votre Mac : templates/motd.j2
+
+==============================================================================
+    BIENVENUE SUR LE SERVEUR : {{ ansible_facts['hostname'] | upper }}
+==============================================================================
+
+- Système d'exploitation : {{ ansible_facts['distribution'] }}
+  {{ ansible_facts['distribution_version'] }}
+  ({{ ansible_facts['distribution_release'] }})
+
+- Adresse IPv4 principale : {{ ansible_facts['default_ipv4']['address'] }}
+
+- Ressources Proxmox VE :
+  {{ ansible_facts['processor_vcpus'] }} vCPU /
+  {{ ansible_facts['memtotal_mb'] }} Mo RAM
+
+- Administrateur référent :
+  {{ admin_user | default('younes') }}
+
+==============================================================================

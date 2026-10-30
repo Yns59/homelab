@@ -1,0 +1,59 @@
+- name: Configuration initiale de base de mes VM Debian sur Proxmox
+
+  # Cible toutes les machines présentes dans l'inventaire Ansible
+  hosts: docker
+
+  # Exécute les tâches avec les privilèges administrateur (sudo)
+  become: true
+
+  tasks:
+
+  - name: Créer l'arborescence de stockage pour nos conteneurs
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: directory
+      owner: root
+      mode: '0755'
+    loop: '{{docker_file}}'
+
+  - name: creation du repetoire securisé
+    ansible.builtin.file:
+      path: /etc/apt/keyrings
+      state: directory
+      mode: '0755'
+
+  - name: telecharger la cle gpg officiel de docker
+    ansible.builtin.get_url:
+      url: https://download.docker.com/linux/debian/gpg
+      dest: /etc/apt/keyrings/docker.asc
+      mode: '0644'
+      force: false
+
+  - name: Ajouter le dépôt Docker
+    ansible.builtin.apt_repository:
+      repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
+      filename: docker
+      state: present
+      update_cache: true
+
+  - name: installation Docker Engine, CLI, Containerd et le plugin Docker Compose
+    ansible.builtin.apt:
+      name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      state: present
+
+  - name: Démarrer et activer le service systemd Docker
+    ansible.builtin.service:
+      name: docker
+      state: started
+      enabled: true
+
+  - name: ajout utilisateur docker
+    ansible.builtin.user:
+      name: younes
+      groups: docker
+      append: true

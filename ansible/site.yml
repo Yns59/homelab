@@ -1,0 +1,5 @@
+- import_playbook: playbooks/securite/all_security.yml
+- import_playbook: playbooks/bootstrap.yml
+- import_playbook: playbooks/docker/docker.yml
+- import_playbook: playbooks/docker/portainer.yml
+- import_playbook: playbooks/supervision/supervision.yml
