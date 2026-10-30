@@ -53,7 +53,7 @@ variable "node_name" {
 
 variable "username" {
   type        = string
-  default     = "younes"
+  default     = "username"
   description = "Utilisateur Cloud-Init"
 }
 
